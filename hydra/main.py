@@ -48,53 +48,60 @@ async def lifespan(app: FastAPI):
     configure_logging(settings.log_level)
     logger.info("hydra_starting", profile=settings.hydra_profile)
 
-    r = redis_lib.Redis.from_url(settings.redis_url, decode_responses=True)
-    set_redis(r)
+    ohlcv_store = None
+    try:
+        r = redis_lib.Redis.from_url(settings.redis_url, decode_responses=True)
+        set_redis(r)
 
-    market_manager = MarketManager()
-    key_manager = KeyManager()
-    telegram = TelegramNotifier(settings.telegram_bot_token, settings.telegram_chat_id)
-    position_tracker = PositionTracker(r)
-    state_manager = StateManager(r)
-    risk_engine = RiskEngine(r, position_tracker)
-    pnl_tracker = PnlTracker(r)
-    ohlcv_store = create_store()
-    await ohlcv_store.init()
-    exchanges = create_exchanges(market_manager, key_manager)
+        market_manager = MarketManager()
+        key_manager = KeyManager()
+        telegram = TelegramNotifier(settings.telegram_bot_token, settings.telegram_chat_id)
+        position_tracker = PositionTracker(r)
+        state_manager = StateManager(r)
+        risk_engine = RiskEngine(r, position_tracker)
+        pnl_tracker = PnlTracker(r)
+        ohlcv_store = create_store()
+        await ohlcv_store.init()
+        exchanges = create_exchanges(market_manager, key_manager)
 
-    kill_switch = KillSwitch(
-        exchanges=exchanges,
-        position_tracker=position_tracker,
-        telegram=telegram,
-        redis_client=r,
-    )
-    order_queue = OrderQueue(
-        redis_client=r,
-        risk_engine=risk_engine,
-        position_tracker=position_tracker,
-        exchanges=exchanges,
-    )
-    graceful = GracefulManager(order_queue, position_tracker, r)
-    graceful.register_signals()
+        kill_switch = KillSwitch(
+            exchanges=exchanges,
+            position_tracker=position_tracker,
+            telegram=telegram,
+            redis_client=r,
+        )
+        order_queue = OrderQueue(
+            redis_client=r,
+            risk_engine=risk_engine,
+            position_tracker=position_tracker,
+            exchanges=exchanges,
+        )
+        graceful = GracefulManager(order_queue, position_tracker, r)
+        graceful.register_signals()
 
-    set_order_queue(order_queue)
-    set_position_tracker(position_tracker)
-    set_risk_deps(kill_switch, risk_engine)
-    set_market_manager(market_manager)
-    set_pnl_dependencies(pnl_tracker, position_tracker)
-    set_store(ohlcv_store)
-    set_redis_for_indicators(r)
-    set_redis_for_regime(r)
-    set_redis_for_signals(r)
-    set_redis_for_supplemental(r)
-    set_store_for_backtest(ohlcv_store)
+        set_order_queue(order_queue)
+        set_position_tracker(position_tracker)
+        set_risk_deps(kill_switch, risk_engine)
+        set_market_manager(market_manager)
+        set_pnl_dependencies(pnl_tracker, position_tracker)
+        set_store(ohlcv_store)
+        set_redis_for_indicators(r)
+        set_redis_for_regime(r)
+        set_redis_for_signals(r)
+        set_redis_for_supplemental(r)
+        set_store_for_backtest(ohlcv_store)
 
-    logger.info("hydra_started")
+        logger.info("hydra_started")
+    except Exception as exc:
+        logger.error("hydra_startup_failed", error=str(exc))
+        raise
+
     try:
         yield
     finally:
         logger.info("hydra_stopping")
-        await ohlcv_store.close()
+        if ohlcv_store is not None:
+            await ohlcv_store.close()
 
 
 def create_app() -> FastAPI:
@@ -104,6 +111,13 @@ def create_app() -> FastAPI:
     async def auth_guard(request: Request, call_next):
         if request.url.path == "/health":
             return await call_next(request)
+        from fastapi.responses import JSONResponse
+        api_key = request.headers.get("X-HYDRA-KEY", "")
+        if not api_key or api_key != get_settings().hydra_api_key:
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Invalid or missing API key. Set X-HYDRA-KEY header."},
+            )
         return await call_next(request)
 
     app.include_router(health.router)
