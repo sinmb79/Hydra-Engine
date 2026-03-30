@@ -1,0 +1,26 @@
+# config/markets.yaml
+markets:
+  kr:
+    enabled: false
+    mode: paper
+    exchange: kis
+  us:
+    enabled: false
+    mode: paper
+    exchange: kis
+  upbit:
+    enabled: false
+    mode: paper
+    exchange: upbit
+  binance:
+    enabled: false
+    mode: paper
+    exchange: binance
+  hl:
+    enabled: false
+    mode: paper
+    exchange: hyperliquid
+  poly:
+    enabled: false
+    mode: paper
+    exchange: polymarket

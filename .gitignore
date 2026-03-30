@@ -1,0 +1,43 @@
+# Secrets
+.env
+.env.*
+!.env.example
+config/keys/
+*.key
+~/.hydra/
+
+# Database
+*.db
+*.sqlite
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+.venv/
+venv/
+data/
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+logs/
+*.log
+
+# Docker volumes
+redis-data/
+db-data/
+
+# Git worktrees
+.worktrees/
+
+# Internal planning artifacts kept local only
+docs/superpowers/
+hydra-phase0-spec.md
+hydra-v32-final.jsx

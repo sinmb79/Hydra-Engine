@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hydra"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.115.*",
+    "uvicorn[standard]==0.34.*",
+    "redis==5.2.*",
+    "pydantic==2.10.*",
+    "pydantic-settings==2.7.*",
+    "cryptography==44.*",
+    "pybreaker==1.2.*",
+    "tenacity==9.0.*",
+    "structlog==24.*",
+    "typer==0.15.*",
+    "python-telegram-bot==21.*",
+    "python-kis==1.*",
+    "ccxt==4.*",
+    "psutil==6.*",
+    "prometheus-client==0.21.*",
+    "httpx==0.28.*",
+    "pyyaml==6.*",
+    "websockets==12.*",
+    "aiosqlite==0.20.*",
+    "asyncpg==0.30.*",
+    "pandas-ta>=0.3.14b",
+    "pandas>=2.0",
+    "numpy>=1.26",
+    "vaderSentiment>=3.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.*",
+    "pytest-asyncio==0.24.*",
+    "pytest-cov==6.*",
+]
+
+[project.scripts]
+hydra = "hydra.cli.app:app"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

@@ -1,0 +1,38 @@
+# OHLCV collection targets per market.
+# Disabled markets (config/markets.yaml) are skipped by the collector.
+
+binance:
+  symbols:
+    - BTC/USDT
+    - ETH/USDT
+    - BTC/USDT:USDT   # futures
+    - ETH/USDT:USDT   # futures
+  timeframes: [1m, 5m, 15m, 1h, 4h, 1d]
+
+upbit:
+  symbols:
+    - BTC/KRW
+    - ETH/KRW
+    - SOL/KRW
+  timeframes: [1m, 5m, 15m, 1h, 4h, 1d]
+
+hl:
+  symbols:
+    - BTC-PERP
+    - ETH-PERP
+  timeframes: [1m, 5m, 15m, 1h, 4h, 1d]
+
+kr:
+  symbols:
+    - "005930"   # Samsung Electronics
+    - "000660"   # SK Hynix
+    - "035420"   # NAVER
+  timeframes: [1m, 5m, 15m, 1h, 1d]
+
+us:
+  symbols:
+    - AAPL
+    - TSLA
+    - NVDA
+    - SPY
+  timeframes: [1m, 5m, 15m, 1h, 1d]

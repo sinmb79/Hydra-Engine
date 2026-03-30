@@ -1,0 +1,172 @@
+version: "3.9"
+
+services:
+  hydra-core:
+    build: .
+    command: uvicorn hydra.main:app --host 127.0.0.1 --port 8000
+    mem_limit: 2g
+    cpus: 2
+    restart: always
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      - HYDRA_PROFILE=lite
+      - REDIS_URL=redis://redis:6379
+      - DB_URL=sqlite:///data/hydra.db
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    mem_limit: 1g
+    restart: always
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+
+  hydra-collector:
+    build: .
+    command: python -m hydra.data.collector
+    mem_limit: 512m
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - HYDRA_PROFILE=lite
+      - REDIS_URL=redis://redis:6379
+      - DB_URL=sqlite:///data/hydra.db
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    depends_on:
+      - redis
+
+  hydra-indicator:
+    build: .
+    command: python -m hydra.indicator.engine
+    restart: always
+    mem_limit: 512m
+    env_file:
+      - .env
+    environment:
+      - HYDRA_PROFILE=lite
+      - REDIS_URL=redis://redis:6379
+      - DB_URL=sqlite:///data/hydra.db
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    depends_on:
+      - redis
+      - hydra-collector
+
+  hydra-regime:
+    build: .
+    command: python -m hydra.regime.engine
+    restart: always
+    mem_limit: 256m
+    env_file:
+      - .env
+    environment:
+      - HYDRA_PROFILE=lite
+      - REDIS_URL=redis://redis:6379
+      - DB_URL=sqlite:///data/hydra.db
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    depends_on:
+      - redis
+      - hydra-indicator
+
+  hydra-strategy:
+    build: .
+    command: python -m hydra.strategy.engine
+    restart: always
+    mem_limit: 256m
+    env_file:
+      - .env
+    environment:
+      - HYDRA_PROFILE=lite
+      - REDIS_URL=redis://redis:6379
+      - DB_URL=sqlite:///data/hydra.db
+      - STRATEGY_DRY_RUN=true
+      - STRATEGY_TRADE_AMOUNT_USD=100
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    depends_on:
+      - redis
+      - hydra-regime
+
+  hydra-orderbook:
+    build: .
+    command: python -m hydra.supplemental.orderbook
+    restart: always
+    mem_limit: 128m
+    env_file:
+      - .env
+    environment:
+      - HYDRA_PROFILE=lite
+      - REDIS_URL=redis://redis:6379
+      - DB_URL=sqlite:///data/hydra.db
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    depends_on:
+      - redis
+      - hydra-indicator
+
+  hydra-events:
+    build: .
+    command: python -m hydra.supplemental.events
+    restart: always
+    mem_limit: 128m
+    env_file:
+      - .env
+    environment:
+      - HYDRA_PROFILE=lite
+      - REDIS_URL=redis://redis:6379
+      - COINMARKETCAL_API_KEY=${COINMARKETCAL_API_KEY:-}
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      - redis
+
+  hydra-sentiment:
+    build: .
+    command: python -m hydra.supplemental.sentiment
+    restart: always
+    mem_limit: 256m
+    env_file:
+      - .env
+    environment:
+      - HYDRA_PROFILE=lite
+      - REDIS_URL=redis://redis:6379
+      - CRYPTOPANIC_API_KEY=${CRYPTOPANIC_API_KEY:-}
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      - redis
+      - hydra-indicator
+
+  telegram-bot:
+    build: .
+    command: python -m hydra.notify.telegram
+    mem_limit: 256m
+    restart: always
+    env_file:
+      - .env
+    depends_on:
+      - hydra-core
+
+volumes:
+  redis-data:
