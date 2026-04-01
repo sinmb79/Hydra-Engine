@@ -13,6 +13,8 @@ def _mask_secrets(_, __, event_dict: dict) -> dict:
 
 def configure_logging(level: str = "INFO") -> None:
     """structlog JSON 로깅 설정. 애플리케이션 시작 시 1회 호출."""
+    log_level = getattr(logging, level.upper(), logging.INFO)
+    logging.basicConfig(level=log_level, format="%(message)s")
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
@@ -22,11 +24,9 @@ def configure_logging(level: str = "INFO") -> None:
             _mask_secrets,
             structlog.processors.JSONRenderer(),
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(
-            getattr(logging, level.upper(), logging.INFO)
-        ),
+        wrapper_class=structlog.make_filtering_bound_logger(log_level),
         context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(),
+        logger_factory=structlog.stdlib.LoggerFactory(),
     )
 
 

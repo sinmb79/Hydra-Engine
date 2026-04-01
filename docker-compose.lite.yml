@@ -3,7 +3,7 @@ version: "3.9"
 services:
   hydra-core:
     build: .
-    command: uvicorn hydra.main:app --host 127.0.0.1 --port 8000
+    command: uvicorn hydra.main:app --host 0.0.0.0 --port 8000
     mem_limit: 2g
     cpus: 2
     restart: always

@@ -16,8 +16,8 @@ class OrderBookPoller:
         self._redis = redis_client
         self._interval = interval_sec
 
-    def _get_active_symbols(self) -> list[tuple[str, str]]:
-        keys = self._redis.keys(f"{_INDICATOR_PREFIX}:*")
+    async def _get_active_symbols(self) -> list[tuple[str, str]]:
+        keys = await self._redis.keys(f"{_INDICATOR_PREFIX}:*")
         seen = set()
         result = []
         for key in keys:
@@ -65,7 +65,7 @@ class OrderBookPoller:
     async def run(self) -> None:
         logger.info("orderbook_poller_started", interval=self._interval)
         while True:
-            for market, symbol in self._get_active_symbols():
+            for market, symbol in await self._get_active_symbols():
                 data = self._fetch_one(market, symbol)
                 if data:
                     key = f"{_ORDERBOOK_PREFIX}:{market}:{symbol}"

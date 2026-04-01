@@ -22,8 +22,8 @@ class SentimentPoller:
         self._interval = interval_sec
         self._analyzer = SentimentIntensityAnalyzer()
 
-    def _get_active_symbols(self) -> list[str]:
-        keys = self._redis.keys(f"{_INDICATOR_PREFIX}:*")
+    async def _get_active_symbols(self) -> list[str]:
+        keys = await self._redis.keys(f"{_INDICATOR_PREFIX}:*")
         bases = set()
         for key in keys:
             parts = key.split(":")
@@ -34,7 +34,8 @@ class SentimentPoller:
             bases.add(base)
         return list(bases)
 
-    async def _fetch_news(self, symbol: str) -> list[str]:
+    async def _fetch_news(self, symbol: str) -> list[dict]:
+        """Returns list of {title, published_at} dicts."""
         try:
             params: dict = {"currencies": symbol, "public": "true"}
             if self._api_key:
@@ -43,27 +44,49 @@ class SentimentPoller:
                 resp = await client.get(_API_URL, params=params)
                 resp.raise_for_status()
                 results = resp.json().get("results", [])
-                return [item["title"] for item in results if item.get("title")]
+                return [
+                    {"title": item["title"], "published_at": item.get("published_at")}
+                    for item in results
+                    if item.get("title")
+                ]
         except Exception as e:
             logger.warning("sentiment_fetch_error", symbol=symbol, error=str(e))
             return []
 
-    def _score(self, headlines: list[str]) -> float:
-        if not headlines:
-            return 0.0
-        scores = [self._analyzer.polarity_scores(h)["compound"] for h in headlines]
-        return round(sum(scores) / len(scores), 4)
+    def _score_with_decay(self, articles: list[dict], market: str) -> float:
+        from datetime import timezone
+        from hydra.ml.sentiment import aggregate_sentiment
+        from dateutil import parser as dtparser
+        items = []
+        for a in articles:
+            raw_ts = a.get("published_at")
+            try:
+                pub = dtparser.parse(raw_ts).astimezone(timezone.utc) if raw_ts else None
+            except Exception:
+                pub = None
+            score = self._analyzer.polarity_scores(a["title"])["compound"]
+            if pub is not None:
+                items.append({"score": score, "publish_time": pub})
+        if not items:
+            if not articles:
+                return 0.0
+            scores = [self._analyzer.polarity_scores(a["title"])["compound"] for a in articles]
+            return round(sum(scores) / len(scores), 4)
+        return round(aggregate_sentiment(items, market), 4)
+
+    def _market_type(self, symbol: str) -> str:
+        return "crypto"  # supplemental module handles crypto only
 
     async def run(self) -> None:
         logger.info("sentiment_poller_started", interval=self._interval)
         while True:
-            for symbol in self._get_active_symbols():
-                headlines = await self._fetch_news(symbol)
-                score = self._score(headlines)
+            for symbol in await self._get_active_symbols():
+                articles = await self._fetch_news(symbol)
+                score = self._score_with_decay(articles, self._market_type(symbol))
                 key = f"{_SENTIMENT_PREFIX}:{symbol}"
                 await self._redis.set(key, json.dumps({
                     "score": score,
-                    "article_count": len(headlines),
+                    "article_count": len(articles),
                     "ts": int(time.time() * 1000),
                 }))
                 logger.debug("sentiment_cached", symbol=symbol, score=score)

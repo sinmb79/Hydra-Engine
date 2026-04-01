@@ -34,14 +34,14 @@ class StrategyEngine:
         self, market: str, symbol: str, timeframe: str
     ) -> None:
         try:
-            raw_indicator = self._redis.get(
+            raw_indicator = await self._redis.get(
                 f"{_INDICATOR_PREFIX}:{market}:{symbol}:{timeframe}"
             )
             if raw_indicator is None:
                 return
             indicators = json.loads(raw_indicator)
 
-            raw_regime = self._redis.get(
+            raw_regime = await self._redis.get(
                 f"{_REGIME_PREFIX}:{market}:{symbol}:{timeframe}"
             )
             if raw_regime is None:
@@ -51,6 +51,13 @@ class StrategyEngine:
             close = float(indicators.get("close") or 0.0)
             signal = self._generator.generate(indicators, regime, close)
 
+            from hydra.engine.interfaces import (
+                SizingParams, regime_str_to_probabilities, compute_regime_adjusted_size
+            )
+            regime_probs = regime_str_to_probabilities(regime)
+            sizing = SizingParams(base_size=self._trade_amount_usd)
+            effective_size = compute_regime_adjusted_size(regime_probs, sizing)
+
             await self._redis.set(
                 f"{_SIGNAL_PREFIX}:{market}:{symbol}:{timeframe}",
                 json.dumps({
@@ -58,19 +65,21 @@ class StrategyEngine:
                     "reason": signal.reason,
                     "price": signal.price,
                     "ts": signal.ts,
+                    "effective_size": round(effective_size, 4),
                 }),
             )
             logger.debug("signal_cached", market=market, symbol=symbol,
-                         tf=timeframe, signal=signal.signal, reason=signal.reason)
+                         tf=timeframe, signal=signal.signal, reason=signal.reason,
+                         effective_size=round(effective_size, 4))
 
             if signal.signal in ("BUY", "SELL") and not self._dry_run:
-                await self._submit_order(market, symbol, signal)
+                await self._submit_order(market, symbol, signal, effective_size)
 
         except Exception as e:
             logger.warning("strategy_error", market=market, symbol=symbol,
                            tf=timeframe, error=str(e))
 
-    async def _submit_order(self, market: str, symbol: str, signal: Signal) -> None:
+    async def _submit_order(self, market: str, symbol: str, signal: Signal, effective_size: float | None = None) -> None:
         from hydra.core.order_queue import OrderRequest
         allowed, reason = self._risk_engine.check_order_allowed(market, symbol, 0.0)
         if not allowed:
@@ -82,14 +91,14 @@ class StrategyEngine:
             symbol=symbol,
             side="buy" if signal.signal == "BUY" else "sell",
             order_type="market",
-            amount=self._trade_amount_usd,
+            amount=effective_size if effective_size is not None else self._trade_amount_usd,
         )
         result = await self._order_queue.submit(order)
         logger.info("order_submitted", market=market, symbol=symbol,
                     signal=signal.signal, order_id=result.order_id)
 
     async def cold_start(self) -> None:
-        keys = self._redis.keys(f"{_INDICATOR_PREFIX}:*")
+        keys = await self._redis.keys(f"{_INDICATOR_PREFIX}:*")
         logger.info("strategy_cold_start", count=len(keys))
         for key in keys:
             parts = key.split(":")

@@ -22,7 +22,7 @@ class RegimeEngine:
     ) -> None:
         try:
             indicator_key = f"{_INDICATOR_PREFIX}:{market}:{symbol}:{timeframe}"
-            raw = self._redis.get(indicator_key)
+            raw = await self._redis.get(indicator_key)
             if raw is None:
                 return
             indicators = json.loads(raw)
@@ -40,7 +40,7 @@ class RegimeEngine:
                            tf=timeframe, error=str(e))
 
     async def cold_start(self) -> None:
-        keys = self._redis.keys(f"{_INDICATOR_PREFIX}:*")
+        keys = await self._redis.keys(f"{_INDICATOR_PREFIX}:*")
         logger.info("regime_cold_start", count=len(keys))
         for key in keys:
             parts = key.split(":")
