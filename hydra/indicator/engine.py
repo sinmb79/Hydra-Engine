@@ -47,20 +47,25 @@ class IndicatorEngine:
             await self._handle_event(row["market"], row["symbol"], row["timeframe"])
 
     async def run(self) -> None:
-        """Subscribe to hydra:candle:new and process events."""
-        pubsub = self._redis.pubsub()
-        await pubsub.subscribe(_CHANNEL)
-        logger.info("indicator_engine_subscribed", channel=_CHANNEL)
-        async for message in pubsub.listen():
-            if message["type"] != "message":
-                continue
+        """Subscribe to hydra:candle:new and process events, with reconnect on disconnect."""
+        while True:
             try:
-                payload = json.loads(message["data"])
-                await self._handle_event(
-                    payload["market"], payload["symbol"], payload["timeframe"]
-                )
+                pubsub = self._redis.pubsub()
+                await pubsub.subscribe(_CHANNEL)
+                logger.info("indicator_engine_subscribed", channel=_CHANNEL)
+                async for message in pubsub.listen():
+                    if message["type"] != "message":
+                        continue
+                    try:
+                        payload = json.loads(message["data"])
+                        await self._handle_event(
+                            payload["market"], payload["symbol"], payload["timeframe"]
+                        )
+                    except Exception as e:
+                        logger.warning("indicator_subscribe_error", error=str(e))
             except Exception as e:
-                logger.warning("indicator_subscribe_error", error=str(e))
+                logger.warning("indicator_pubsub_reconnect", error=str(e))
+                await asyncio.sleep(5)
 
 
 async def main() -> None:

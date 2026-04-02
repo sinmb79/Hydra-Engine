@@ -52,19 +52,24 @@ class RegimeEngine:
             await self._handle_event(market, symbol, timeframe)
 
     async def run(self) -> None:
-        pubsub = self._redis.pubsub()
-        await pubsub.subscribe(_CANDLE_CHANNEL)
-        logger.info("regime_engine_subscribed", channel=_CANDLE_CHANNEL)
-        async for message in pubsub.listen():
-            if message["type"] != "message":
-                continue
+        while True:
             try:
-                payload = json.loads(message["data"])
-                await self._handle_event(
-                    payload["market"], payload["symbol"], payload["timeframe"],
-                )
+                pubsub = self._redis.pubsub()
+                await pubsub.subscribe(_CANDLE_CHANNEL)
+                logger.info("regime_engine_subscribed", channel=_CANDLE_CHANNEL)
+                async for message in pubsub.listen():
+                    if message["type"] != "message":
+                        continue
+                    try:
+                        payload = json.loads(message["data"])
+                        await self._handle_event(
+                            payload["market"], payload["symbol"], payload["timeframe"],
+                        )
+                    except Exception as e:
+                        logger.warning("regime_subscribe_error", error=str(e))
             except Exception as e:
-                logger.warning("regime_subscribe_error", error=str(e))
+                logger.warning("regime_pubsub_reconnect", error=str(e))
+                await asyncio.sleep(5)
 
 
 async def main() -> None:

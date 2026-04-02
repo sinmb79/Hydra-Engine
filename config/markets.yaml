@@ -1,11 +1,11 @@
 # config/markets.yaml
 markets:
   kr:
-    enabled: false
+    enabled: true
     mode: paper
     exchange: kis
   us:
-    enabled: false
+    enabled: true
     mode: paper
     exchange: kis
   upbit:
@@ -13,12 +13,12 @@ markets:
     mode: paper
     exchange: upbit
   binance:
-    enabled: false
-    mode: paper
+    enabled: true
+    mode: paper       # 테스트넷 키 사용 중 — 실전 전환 시 live로 변경
     exchange: binance
   hl:
-    enabled: false
-    mode: paper
+    enabled: true
+    mode: paper       # Hyperliquid 테스트넷
     exchange: hyperliquid
   poly:
     enabled: false
