@@ -1,0 +1,751 @@
+{
+  "name": "HYDRA Risk Monitor",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ab9f3c9a-c41f-4c8d-8c69-5c0d4a2b7f11",
+      "name": "When clicking Test Workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1220,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "ec8ea79e-a72f-4c75-9cb2-81ed5f1f0b66",
+      "name": "Schedule Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1220,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "hydraBaseUrl",
+              "type": "string",
+              "value": "={{ $env.HYDRA_BASE_URL || 'http://127.0.0.1:8000' }}"
+            },
+            {
+              "name": "hydraApiKey",
+              "type": "string",
+              "value": "={{ $env.HYDRA_API_KEY || '' }}"
+            },
+            {
+              "name": "lossAlertPct",
+              "type": "number",
+              "value": "={{ Number($env.HYDRA_ALERT_LOSS_PCT || -0.03) }}"
+            },
+            {
+              "name": "autoKillSwitch",
+              "type": "boolean",
+              "value": "={{ ($env.HYDRA_AUTO_KILL_SWITCH || 'false').toLowerCase() === 'true' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "197f8654-e935-4b0c-bf09-6346f1e5e3bf",
+      "name": "Set Policy",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -980,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.hydraBaseUrl + '/health' }}",
+        "method": "GET",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "7696eac2-08c7-41a5-b81d-67f25c1f9696",
+      "name": "Get Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -760,
+        -120
+      ],
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "health",
+              "type": "object",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e4bb3fd0-9bc8-4644-9dd4-e01c983f3cac",
+      "name": "Pack Health",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -540,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.hydraBaseUrl + '/status' }}",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-HYDRA-KEY",
+              "value": "={{ $json.hydraApiKey }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "b40b7fe1-7679-4af4-bdb9-77d11a5c11f5",
+      "name": "Get System Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -760,
+        20
+      ],
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "system",
+              "type": "object",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8608625c-a06d-441d-a014-94cb53ff4fc9",
+      "name": "Pack System",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -540,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.hydraBaseUrl + '/risk' }}",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-HYDRA-KEY",
+              "value": "={{ $json.hydraApiKey }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "2838fa77-f07f-4f1f-8d3d-f0bd9fb6412a",
+      "name": "Get Risk",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -760,
+        160
+      ],
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "risk",
+              "type": "object",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5d4ecf15-f7d3-4c84-ae63-598e2e40e769",
+      "name": "Pack Risk",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -540,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.hydraBaseUrl + '/pnl' }}",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-HYDRA-KEY",
+              "value": "={{ $json.hydraApiKey }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "804b2cb7-baca-4b3e-9cd6-456646e85ef3",
+      "name": "Get PnL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -760,
+        300
+      ],
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "pnl",
+              "type": "object",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8692c1e0-7321-4e66-8bcc-52cf350fd95f",
+      "name": "Pack PnL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "id": "8a9383c3-271f-4383-9265-f5cc3e2413f3",
+      "name": "Merge Policy + Health",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -320,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "id": "eb304d82-9dcb-4302-bbcc-ff299cbf3980",
+      "name": "Merge + System",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -100,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "id": "ab729afb-f937-40a9-99bf-bab3fd8d8f4b",
+      "name": "Merge + Risk",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        120,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "id": "fcb0e651-4e36-419a-948d-979c3c0c91e7",
+      "name": "Merge + PnL",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        340,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const payload = items[0].json; const observedAt = new Date().toISOString(); const health = payload.health ?? {}; const system = payload.system ?? {}; const risk = payload.risk ?? {}; const pnl = payload.pnl ?? {}; const healthStatus = typeof health.status === 'string' ? health.status : 'offline'; const killSwitchActive = Boolean(risk.kill_switch_active); const dailyPnlPct = Number(risk.daily_pnl_pct ?? 0); const lossAlertPct = Number(payload.lossAlertPct ?? -0.03); const totalPnl = Number(pnl.total_pnl ?? 0); const tradeCount = Number(pnl.trade_count ?? 0); const positions = Array.isArray(pnl.positions) ? pnl.positions : []; const collectors = health.collectors && typeof health.collectors === 'object' ? health.collectors : {}; const collectorIssues = Object.entries(collectors).filter(([, value]) => typeof value === 'string' && value.startsWith('error:')).map(([market, value]) => `${market}=${value}`); const sectionMap = { health, system, risk, pnl }; const sectionErrors = Object.entries(sectionMap).flatMap(([name, section]) => { if (!section || typeof section !== 'object') return []; if (typeof section.error === 'string') return [`${name}: ${section.error}`]; if (section.error && typeof section.error === 'object') return [`${name}: ${JSON.stringify(section.error)}`]; if (typeof section.message === 'string' && !section.status) return [`${name}: ${section.message}`]; return []; }); const lossBreached = dailyPnlPct <= lossAlertPct; const needsAttention = healthStatus !== 'ok' || killSwitchActive || lossBreached || collectorIssues.length > 0 || sectionErrors.length > 0; const shouldAutoKillSwitch = Boolean(payload.autoKillSwitch) && !killSwitchActive && lossBreached && sectionErrors.length === 0; const pct = (value) => `${(Number(value) * 100).toFixed(2)}%`; const positionSummary = positions.slice(0, 3).map((pos) => { const market = pos.market ?? 'unknown'; const symbol = pos.symbol ?? 'unknown'; const side = String(pos.side ?? 'flat').toUpperCase(); const upnl = Number(pos.unrealized_pnl ?? 0); const qty = pos.qty ?? pos.quantity ?? '?'; return `[${market}] ${symbol} ${side} qty=${qty} upnl=${upnl.toFixed(4)}`; }); const lines = [ 'HYDRA monitor alert', `Observed at: ${observedAt}`, `Base URL: ${payload.hydraBaseUrl}`, `Health: ${healthStatus}`, `Profile: ${system.profile ?? 'unknown'} | Version: ${system.version ?? 'unknown'}`, `Daily PnL: ${pct(dailyPnlPct)} | Threshold: ${pct(lossAlertPct)}`, `Total PnL: ${Number.isFinite(totalPnl) ? totalPnl.toFixed(4) : 'n/a'} USDT | Trades: ${tradeCount}`, `Open positions: ${positions.length}`, `Kill Switch: ${killSwitchActive ? 'ACTIVE' : 'NORMAL'}` ]; if (collectorIssues.length) lines.push(`Collector issues: ${collectorIssues.join(', ')}`); if (sectionErrors.length) lines.push(`Errors: ${sectionErrors.join(' | ')}`); if (lossBreached) lines.push('Action: daily loss threshold breached.'); if (shouldAutoKillSwitch) lines.push('Action: auto kill switch request will be sent.'); if (positionSummary.length) lines.push(`Positions: ${positionSummary.join(' ; ')}`); return [{ json: { ...payload, observedAt, healthStatus, killSwitchActive, dailyPnlPct, totalPnl, tradeCount, openPositionCount: positions.length, collectorIssues, sectionErrors, lossBreached, needsAttention, shouldAutoKillSwitch, killReason: `n8n_auto_loss_${Math.round(Math.abs(dailyPnlPct) * 10000)}`, alertText: lines.join('\\\\n') } }];"
+      },
+      "id": "9d2b4425-5f22-4e59-8c49-4a5b58d45995",
+      "name": "Build Alert Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        580,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.needsAttention }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f8ab1f97-a326-4b22-ae11-f7fd432ec6b1",
+      "name": "Attention Needed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        820,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ $json.alertText }}"
+      },
+      "id": "4740fdb0-10f5-4a1f-abfd-7cf71cc45872",
+      "name": "Send Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1060,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.shouldAutoKillSwitch }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f515cbf7-6a71-4f13-8d70-bb37c080f38a",
+      "name": "Auto Kill Switch?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1060,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.hydraBaseUrl + '/killswitch' }}",
+        "method": "POST",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "reason",
+              "value": "={{ $json.killReason }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-HYDRA-KEY",
+              "value": "={{ $json.hydraApiKey }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "85d6186e-1f1c-44b1-bc94-f638dfeb1883",
+      "name": "Trigger Kill Switch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1280,
+        180
+      ],
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const data = items[0].json; const errorText = typeof data.error === 'string' ? data.error : data.error ? JSON.stringify(data.error) : ''; const success = data.success === true; const closedCount = Array.isArray(data.closed) ? data.closed.length : 0; const errors = Array.isArray(data.errors) ? data.errors : []; const message = success ? `HYDRA auto kill switch executed. Closed positions: ${closedCount}.` : `HYDRA auto kill switch request needs review.${errorText ? ` Error: ${errorText}` : ''}${errors.length ? ` API errors: ${JSON.stringify(errors)}` : ''}`; return [{ json: { text: message } }];"
+      },
+      "id": "8f80a4f6-e3cb-434c-b96e-93ae8ed6fec7",
+      "name": "Build Kill Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ $json.text }}"
+      },
+      "id": "744fe80a-6d16-4310-8b97-52b6e36d0a69",
+      "name": "Send Kill Result",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1720,
+        180
+      ]
+    }
+  ],
+  "connections": {
+    "When clicking Test Workflow": {
+      "main": [
+        [
+          {
+            "node": "Set Policy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Set Policy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Policy": {
+      "main": [
+        [
+          {
+            "node": "Get Health",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get System Status",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Risk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get PnL",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Policy + Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Health": {
+      "main": [
+        [
+          {
+            "node": "Pack Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get System Status": {
+      "main": [
+        [
+          {
+            "node": "Pack System",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Risk": {
+      "main": [
+        [
+          {
+            "node": "Pack Risk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get PnL": {
+      "main": [
+        [
+          {
+            "node": "Pack PnL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pack Health": {
+      "main": [
+        [
+          {
+            "node": "Merge Policy + Health",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Policy + Health": {
+      "main": [
+        [
+          {
+            "node": "Merge + System",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pack System": {
+      "main": [
+        [
+          {
+            "node": "Merge + System",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge + System": {
+      "main": [
+        [
+          {
+            "node": "Merge + Risk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pack Risk": {
+      "main": [
+        [
+          {
+            "node": "Merge + Risk",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge + Risk": {
+      "main": [
+        [
+          {
+            "node": "Merge + PnL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pack PnL": {
+      "main": [
+        [
+          {
+            "node": "Merge + PnL",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge + PnL": {
+      "main": [
+        [
+          {
+            "node": "Build Alert Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Alert Context": {
+      "main": [
+        [
+          {
+            "node": "Attention Needed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attention Needed?": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Auto Kill Switch?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Auto Kill Switch?": {
+      "main": [
+        [
+          {
+            "node": "Trigger Kill Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Trigger Kill Switch": {
+      "main": [
+        [
+          {
+            "node": "Build Kill Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Kill Result": {
+      "main": [
+        [
+          {
+            "node": "Send Kill Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "active": false
+}
